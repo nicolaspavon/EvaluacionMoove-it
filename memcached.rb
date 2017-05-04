@@ -1,9 +1,7 @@
-require_relative 'database'
 require_relative 'memory'
 
-DATABASE = Database.new
 MEMORY = Memory.new
-MEMORY.create_hashes
+MEMORY.start
 
 class Memcached
   def work(sentence, data)

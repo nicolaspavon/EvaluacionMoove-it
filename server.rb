@@ -15,10 +15,7 @@ class Server
       MEMCACHED.work(request_line, data)
       socket.close
     else
-      message = "Error\r\n"
-      socket.print "HTTP/1.1 404 Not Found\r\n" + "Content-Type: text/plain\r\n" + "Content-Length: #{message.size}\r\n" + "Connection: close\r\n"
-      socket.print "\r\n"
-      socket.print message
+      socket.print "Error\r\n"
     end
     socket.close
   end
