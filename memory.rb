@@ -1,11 +1,10 @@
 require_relative 'database'
 require_relative 'memory_manager'
-require_relative 'expiration_manager'
 class Memory
   DATABASE_MANAGER = Database_Manager.new
   MEMORY_MANAGER = Memory_manager.new
-  EXPIRATION_MANAGER = Expiration_manager.new
   MEMORY_AMMOUNT = 50
+  attr_accessor :key_data
 
   def start
     @memory_used = 0
@@ -17,13 +16,17 @@ class Memory
     @key_bytes = Hash.new
     @key_data = Hash.new
 
-    EXPIRATION_MANAGER.start(self)
+  end
+
+  def exp_manager
+
   end
 
   def set_key(key, flags, exptime, bytes, data)
     DATABASE_MANAGER.over_write(key, flags, exptime, bytes, data)
 
     if (MEMORY_AMMOUNT > (@memory_used + bytes.to_i))
+      @memory_used -= bytes.to_i if @key_data.has_key?(key)
       @key_flags[key] = flags
       @key_exptime[key] = exptime
       @key_bytes[key] = bytes
@@ -53,7 +56,12 @@ class Memory
     end
   end
 
+  def get_all_keys
+    @key_data.each {|key, value| puts "Key: #{key}, |Data: #{@key_data[key]}", "Flags: #{@key_flags[key]}, |Exptime: #{@key_exptime[key]}, |Bytes: #{@key_bytes[key]}"}
+  end
+
   def delete_key(key)
+    puts "#FROM MEMORY- deleted key #{key}"
     @memory_used -= @key_bytes[key].to_i
     @key_flags.delete("#{key}")
     @key_exptime.delete("#{key}")

@@ -12,20 +12,26 @@ class Memcached
     @bytes = sentence.split(" ")[4]
 
     set(@key, @flags, @exptime, @bytes, data) if @command == "set"
-    add(@key, data) if @command == "add"
+    add(@key, @flags, @exptime, @bytes, data) if @command == "add"
     replace(@key, data) if @command == "replace"
     append(@key, data) if @command == "append"
     m_prepend(@key, data) if @command == "prepend"
     cas(@key, data) if @command == "cas"
     get(@key) if @command == "get"
     m_gets(@key) if @command == "gets"
+    stats if @command == "stats"
   end
 #----------------------------STORAGE COMMANDS------------------
   def set(key, flags, exptime, bytes, datablock)
     MEMORY.set_key(key, flags, exptime, bytes, datablock)
   end
 
-  def add(key, datablock)
+  def add(key, flags, exptime, bytes, datablock)
+    if MEMORY.key_data.has_key?(key)
+      puts "key already in use"
+    else
+      MEMORY.set_key(key, flags, exptime, bytes, datablock)
+    end
 
   end
 
@@ -45,6 +51,10 @@ class Memcached
 
   end
 #----------------------------RETRIEVAL COMMANDS ---------------------------
+  def stats
+    MEMORY.get_all_keys
+  end
+
   def get(key)
     MEMORY.get_key(key)
   end
