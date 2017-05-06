@@ -7,12 +7,16 @@ class Server
   loop do
     socket       = server.accept
     request_line = socket.gets
-    if ["set", "add", "replace", "append", "prepend", "cas"].include?(request_line.split(" ")[0])
+    if ["set", "add", "replace", "append", "prepend"].include?(request_line.split(" ")[0])
       data = socket.gets
-      MEMCACHED.work(request_line, data)
+      MEMCACHED.work(request_line, data, "storage")
+      socket.puts MEMCACHED.response
     elsif ["get", "gets", "stats"].include?(request_line.split(" ")[0])
       data = nil
-      MEMCACHED.work(request_line, data)
+      MEMCACHED.work(request_line.chop, data, "retrieval")
+      MEMCACHED.multiple_response.each do |response|
+        socket.puts response
+      end
       socket.close
     else
       socket.print "Error\r\n"
