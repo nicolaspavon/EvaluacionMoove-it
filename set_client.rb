@@ -3,9 +3,9 @@ require 'socket'
 class SetClient
   def setkey1
     s = TCPSocket.new 'localhost', 2345
-    @data = "datakey1"
+    @data = "nueva data"
     @lenght = @data.size
-    s.puts "set 1 257 50 #{@lenght}\r\n"
+    s.puts "set 6 257 546 #{@lenght}\r\n"
     s.puts "#{@data} \r\n"
     @response = s.gets
     puts @response
@@ -13,9 +13,9 @@ class SetClient
   end
   def setkey2
     s = TCPSocket.new 'localhost', 2345
-    @data = "datakey2"
+    @data = "asda sasfacartvbr key 2"
     @lenght = @data.size
-    s.puts "set 2 27 50 #{@lenght}\r\n"
+    s.puts "set 2 #{@lenght}\r\n"
     s.puts "#{@data} \r\n"
     @response = s.gets
     puts @response
@@ -64,8 +64,8 @@ class SetClient
 end
 client = SetClient.new
 client.setkey1
-client.setkey2
-client.setkey3
-client.addkey3
-client.addkey4
-client.replacekey2
+# client.setkey2
+# client.setkey3
+# client.addkey3
+# client.addkey4
+# client.replacekey2

@@ -15,9 +15,14 @@ class Memory
     @key_exptime = Hash.new
     @key_bytes = Hash.new
     @key_data = Hash.new
+    @key_cas_unique = Hash.new
+
+    @cas_token_array = Array.new
 
     @m_response = "nothing"
     @m_multiple_response = Array.new
+
+    @new_cas_unique = ""
   end
 
   def exp_manager
@@ -27,6 +32,24 @@ class Memory
   def set_key(key, flags, exptime, bytes, data)
     DATABASE_MANAGER.over_write(key, flags, exptime, bytes, data)
     save_in_memory(key, flags, exptime, bytes, data)
+  end
+
+  def generate_cas_token
+    puts "generating cas token:"
+    if @cas_token_array.index("") == nil
+      @new_cas_unique = ((@cas_token_array.last.to_i) +1)
+      @cas_token_array << @new_cas_unique
+    else
+      index = @cas_token_array.index("")
+      @new_cas_unique = ((@cas_token_array[(@cas_token_array.index("")-1).to_i].to_i) +1)
+      @cas_token_array[index] << @new_cas_unique
+    end
+    puts @new_cas_unique
+  end
+
+  def delete_cas_token(cas)
+    @cas_token_array.delete("#{cas}")
+    @new_cas_unique = ""
   end
 
   def get_key(key)
@@ -44,13 +67,13 @@ class Memory
     @data_from_db = DATABASE_MANAGER.load(key)
     if @data_from_db == nil
       puts "#FROM MEMORY- no data hold for this key"
-      dbsentence = "eror"
+      dbsentence = "CLIENT_ERROR <There's no data for this key>\r\n"
     else
       @key = @data_from_db.split(" ")[0]
       @flags = @data_from_db.split(" ")[1]
       @exptime = @data_from_db.split(" ")[2]
       @bytes = @data_from_db.split(" ")[3]
-      @data = @data_from_db.split(" ")[4]
+      @data = @data_from_db.split(" ", 5)[4]
       save_in_memory(@key, @flags, @exptime, @bytes, @data)
       puts "#FROM MEMORY- loaded from database: Key: #{@key} Flags: #{@flags} Exptime: #{@exptime} Bytes: #{@bytes}"
       dbsentence = "VALUE #{@key} #{@flags} #{@bytes}\r\n#{@data}\r\n"
@@ -59,7 +82,8 @@ class Memory
   end
 
   def get_all_keys
-    @key_data.each {|key, value| puts "Key: #{key}, |Data: #{@key_data[key]}", "Flags: #{@key_flags[key]}, |Exptime: #{@key_exptime[key]}, |Bytes: #{@key_bytes[key]}"}
+    @key_data.each {|key, value| @m_multiple_response << "Key: #{key}, |Data: #{@key_data[key]}, Flags: #{@key_flags[key]}, |Exptime: #{@key_exptime[key]}, |Bytes: #{@key_bytes[key]}, |castoken: #{@key_cas_unique[key]}"}
+    @m_multiple_response
   end
 
   def delete_key(key)
@@ -69,6 +93,9 @@ class Memory
     @key_exptime.delete("#{key}")
     @key_bytes.delete("#{key}")
     @key_data.delete("#{key}")
+    puts "deleting this cas key:#{key} cas:#{@key_cas_unique[key]}"
+    delete_cas_token(@key_cas_unique[key])
+    @key_cas_unique.delete("#{key}")
   end
 
   def modify_data(key, flags, exptime, bytes, data, order)
@@ -98,6 +125,8 @@ class Memory
       @key_exptime[key] = exptime
       @key_bytes[key] = bytes
       @key_data[key] = data
+      generate_cas_token
+      @key_cas_unique[key] = @new_cas_unique
       @memory_used += bytes.to_i
       MEMORY_MANAGER.key_used(key)
       puts "#FROM MEMORY- data saved in MEMORY-"
@@ -108,6 +137,9 @@ class Memory
       @key_exptime[key] = exptime
       @key_bytes[key] = bytes
       @key_data[key] = data
+      generate_cas_token
+      @key_cas_unique[key] = @new_cas_unique
+      puts "generated and assigned cas token:#{@cas_unique_used[key]}-"
       @memory_used += bytes.to_i
       MEMORY_MANAGER.key_used(key)
       puts "#FROM MEMORY- data saved in MEMORY (DELETED LRU KEY)"
