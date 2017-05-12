@@ -1,3 +1,0 @@
-2, 257, 546, 20, esta es la data bolu
-asdaaa, 257, 546, 20, esta es la data bolu
-6, 257, 546, 10, nueva data

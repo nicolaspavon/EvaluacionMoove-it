@@ -1,14 +1,31 @@
 require 'socket'
 require_relative 'memcached'
 MEMCACHED = Memcached.new
+SEMAPHORE = Mutex.new
 
 class Server
-  server = TCPServer.new('localhost', 2345)
-  loop do
-    socket       = server.accept
+  puts "SERVER- STARTED"
+  @sasd = "VALUE set1 257 46 \r\ninformation prepend to add1 information replace1 information append to set1\r\n"
+  puts @sasd.size
+  def initialize
+    server = TCPServer.new('localhost', 2345)
+    loop do
+      Thread.fork(server.accept) do |socket|
+        puts "SERVER- socket accepted --------------------------------------------------"
+        SEMAPHORE.synchronize{
+          use_memcached(socket)
+          socket.close
+          puts "SERVER- SOCKET END"
+        }
+        SEMAPHORE.lock
+      end
+    end
+  end
+
+  def use_memcached(socket)
     request_line = socket.gets.gsub("\r\n",'')
     if ["set", "add", "replace", "append", "prepend", "cas"].include?(request_line.split(" ")[0])
-      data = socket.gets.gsub(" \r\n",'')
+      data = socket.gets.gsub("\r\n",'')
       MEMCACHED.work(request_line, data, "storage")
       socket.puts MEMCACHED.response
     elsif ["get", "gets", "stats"].include?(request_line.split(" ")[0])
@@ -19,8 +36,8 @@ class Server
       end
       socket.close
     else
-      socket.print "CLIENT_ERROR <wrong command>\r\n"
+      socket.puts "CLIENT_ERROR <wrong command>\r\n"
     end
-    socket.close
   end
 end
+Server.new

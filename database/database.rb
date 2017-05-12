@@ -2,44 +2,42 @@
 class Database_Manager
 
   def start
-    @database = File.open("database.txt", "a+")
+    puts "DATABASE- STARTED"
+    @database = File.open("Database/database.txt", "a+")
     @load_array = Array.new
   end
 
   def load(key)
-    File.open("database.txt", "r") do |file|
+    puts "DATABASE- load key #{key}"
+    File.open("Database/database.txt", "r") do |file|
       file.any? do |line|
-        @data = line if line.include?(key)
+        @data = line if line.include?(key)#-----------------------------malo
       end
     end
     @data
   end
 
   def check_repeated(key)
-    File.readlines("database.txt").each_with_index do |line, line_num|
+    File.readlines("Database/database.txt").each_with_index do |line, line_num|
         @repeated_line = line_num if line.split(",")[0] == key
     end
     @repeated_line
   end
 
   def write(key, flags, exptime, bytes, data)
-    if check_repeated(key) == nil
-      File.open("database.txt", "a+") do |file|
-        file << "#{key}, #{flags}, #{exptime}, #{bytes}, #{data}"
-      end
-      puts "#FROM DATABASE MANAGER: new line written: key#{key}"
-    else
-      puts "#FROM DATABASE MANAGER: key already used: key#{key}"
+    puts "DATABASE- write key #{key}"
+    File.open("Database/database.txt", "a+") do |file|
+      file << "#{key}, #{flags}, #{exptime}, #{bytes}, #{data}\r\n"
     end
   end
 
   def over_write(key, flags, exptime, bytes, data)
+    puts "DATABASE- overwrite key #{key}"
     @repeated_line = check_repeated(key)
     if @repeated_line != nil
-      @load_array = File.readlines("database.txt")
+      @load_array = File.readlines("Database/database.txt")
       @load_array[@repeated_line] = "#{key}, #{flags}, #{exptime}, #{bytes}, #{data}" #------problema si el archivo es mas grande que la memoria (por guardar todo el archivo en el array)
-      File.open("database.txt", "w") {|file| file.puts @load_array }
-      puts "#FROM DATABASE MANAGER: replaced line #{@repeated_line}| Key: #{key}"
+      File.open("Database/database.txt", "w") {|file| file.puts @load_array }
     else
       write(key, flags, exptime, bytes, data)
     end
