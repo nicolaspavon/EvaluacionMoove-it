@@ -19,6 +19,7 @@ class Memory_manager
     key_exptime.each do |key, value|
       if (@key_last_time_used[key].to_i + value.to_i) < Time.now.to_i
         @memory.delete_key(key)
+        @key_order.delete(key)
         puts "MEMORY-MANAGER- deleted expired key"
       end
     end

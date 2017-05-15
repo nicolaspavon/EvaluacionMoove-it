@@ -1,7 +1,18 @@
 require_relative '../database/database.rb'
+require_relative '../database/false_database.rb'
 require_relative 'memory_manager'
 class Memory
-  DATABASE_MANAGER = Database_Manager.new
+
+  #------------------------------|
+  FALSE_DB = false #--------------|Change to true in order to test memory without database|
+  #------------------------------|
+
+  if FALSE_DB == true
+    DATABASE_MANAGER = False_Database_Manager.new
+  else
+    DATABASE_MANAGER = Database_Manager.new
+  end
+
   MEMORY_MANAGER = Memory_manager.new
   MEMORY_AMMOUNT = 50
   attr_accessor :key_data, :m_response, :key_cas_unique, :key_bytes
@@ -61,24 +72,32 @@ class Memory
     if @key_data.has_key?(key)
       sentence = "VALUE #{key} #{@key_flags[key]} #{@key_bytes[key]}\r\n#{@key_data[key]}\r\n"
     else
-      sentence = load_from_db(key, "ncas")
+      if FALSE_DB == false
+        sentence = load_from_db(key, "ncas")
+      else
+        sentence = "CLIENT_ERROR <There's no data for this key>\r\n"
+      end
     end
     sentence
   end
-
+  # repito codigo
   def gets_key(key)
     puts "Memory- getskey #{key}"
     if @key_data.has_key?(key)
       generate_cas_token
       @key_cas_unique[key] = @new_cas_unique
-      sentence = "VALUE #{key} #{@key_flags[key]} #{@key_bytes[key]} #{@key_cas_unique[key]} \r\n#{@key_data[key]}\r\n"
+      sentence = "VALUE #{key} #{@key_flags[key]} #{@key_bytes[key]} #{@key_cas_unique[key]}\r\n#{@key_data[key]}\r\n"
     else
-      sentence = load_from_db(key, "cas")
+      if FALSE_DB == false
+        sentence = load_from_db(key, "cas")
+      else
+        sentence = "CLIENT_ERROR <There's no data for this key>\r\n"
+      end
     end
     sentence
   end
 
-  def load_from_db(key, type)
+  def load_from_db(key, type)#-----------------------------------------------------
     @data_from_db = DATABASE_MANAGER.load(key)
     if @data_from_db == nil
       dbsentence = "CLIENT_ERROR <There's no data for this key>\r\n"
@@ -89,14 +108,14 @@ class Memory
       @flags = @data_from_db.split(" ")[1]
       @exptime = @data_from_db.split(" ")[2]
       @bytes = @data_from_db.split(" ")[3]
-      @data = @data_from_db.split(" ", 5)[4]
+      @data = @data_from_db.split(" ", 5)[4].strip
       save_in_memory(@key, @flags, @exptime, @bytes, @data)
       if type == "cas"
         generate_cas_token
         @key_cas_unique[key] = @new_cas_unique
-        dbsentence = "VALUE #{@key} #{@flags} #{@bytes} #{@key_cas_unique[key]} \r\n#{@data}\r\n"
+        dbsentence = "VALUE #{@key} #{@flags} #{@bytes} #{@key_cas_unique[key]}\r\n#{@data}\r\n"
       else
-        dbsentence = "VALUE #{@key} #{@flags} #{@bytes} \r\n#{@data}\r\n"
+        dbsentence = "VALUE #{@key} #{@flags} #{@bytes}\r\n#{@data}\r\n"
       end
     end
     dbsentence
@@ -105,6 +124,7 @@ class Memory
   def get_all_keys
     puts "Memory- load all keys"
     @key_data.each do |key, value|
+      puts key
       if @key_cas_unique.has_key?(key)
         @m_multiple_response << "Key: #{key}, |Data: #{@key_data[key]}, Flags: #{@key_flags[key]}, |Exptime: #{@key_exptime[key]}, |Bytes: #{@key_bytes[key]}, |castoken: #{@key_cas_unique[key]}"
       else
@@ -135,19 +155,24 @@ class Memory
       @new_bytes += (@key_bytes[key].to_i + bytes.to_i + 1)
       DATABASE_MANAGER.over_write(key, flags, exptime, @new_bytes, data)
       save_in_memory(key, flags, exptime, @new_bytes, data)
-      puts "Memory- modifyed data saved"
+      puts "Memory- modified data saved"
     else
-      @data_from_db = DATABASE_MANAGER.load(key)
-      if @data_from_db == nil
-        @m_response = "NOT_STORED\r\n"
+      if FALSE_DB == false
+        @data_from_db = DATABASE_MANAGER.load(key) #-----------------------------------------------------
+        if @data_from_db == nil
+          @m_response = "NOT_STORED\r\n"
+        else
+          data = "#{@data_from_db.split(" ")[4]}" + " #{data}" if order == "append"
+          data = "#{data}" + " #{@data_from_db.split(" ", 5)[4]}" if order == "m_prepend"
+          @m_response = "STORED\r\n"
+          @new_bytes += (@key_bytes[key].to_i + bytes.to_i + 1)
+          DATABASE_MANAGER.over_write(key, flags, exptime, @new_bytes, data)
+          save_in_memory(key, flags, exptime, @new_bytes, data)
+          puts "Memory- modified data saved"
+        end
       else
-        data = "#{@data_from_db.split(" ")[4]}" + " #{data}" if order == "append"
-        data = "#{data}" + " #{@data_from_db.split(" ", 5)[4]}" if order == "m_prepend"
-        @m_response = "STORED\r\n"
-        @new_bytes += (@key_bytes[key].to_i + bytes.to_i + 1)
-        DATABASE_MANAGER.over_write(key, flags, exptime, @new_bytes, data)
-        save_in_memory(key, flags, exptime, @new_bytes, data)
-        puts "Memory- modified data saved"
+        puts "Memory- there's no such key in memory"
+        @m_response = "NOT_STORED\r\n"
       end
     end
   end
@@ -155,7 +180,7 @@ class Memory
   def save_in_memory(key, flags, exptime, bytes, data)
     puts "Memory- data saved in memory"
     if (MEMORY_AMMOUNT > (@memory_used + bytes.to_i))
-      @memory_used -= bytes.to_i if @key_data.has_key?(key)
+      @memory_used -= @key_bytes[key].to_i if @key_data.has_key?(key)
       @key_flags[key] = flags
       @key_exptime[key] = exptime
       @key_bytes[key] = bytes
@@ -165,6 +190,7 @@ class Memory
       MEMORY_MANAGER.key_used(key)
     else
       delete_key(MEMORY_MANAGER.delete_LRU_key)
+      @memory_used -= @key_bytes[key].to_i if @key_data.has_key?(key)
       @key_flags[key] = flags
       @key_exptime[key] = exptime
       @key_bytes[key] = bytes

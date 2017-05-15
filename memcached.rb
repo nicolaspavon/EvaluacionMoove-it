@@ -1,95 +1,26 @@
 require_relative 'memory/memory.rb'
+require_relative 'command_analyzer'
 
 class Memcached
   puts "MEMCACHED- STARTED"
   MEMORY = Memory.new
+  ANALYZER = Command_analyzer.new
   MEMORY.start
   attr_accessor :response, :multiple_response
 
   def work(sentence, data, type)
-    puts "MEMCACHED- working..."
-
-    reset
-    parse_sentence(sentence, data, type)
-    MEMORY.exp_manager
-
-    if @error == false
-      set(@key, @flags, @exptime, @bytes, data)                if @command == "set"
-      add(@key, @flags, @exptime, @bytes, data)                if @command == "add"
-      replace(@key, @flags, @exptime, @bytes, data)            if @command == "replace"
-      cas(@key, @flags, @exptime, @bytes, @cas_unique, data)   if @command == "cas"
-      append(@key, @flags, @exptime, @bytes, data)             if @command == "append"
-      m_prepend(@key, @flags, @exptime, @bytes, data)          if @command == "prepend"
-      get(@keys, "get")                                        if @command == "get"
-      get(@keys, "m_gets")                                     if @command == "gets"
-      stats                                                    if @command == "stats"
-    end
-
-  end
-
-  def parse_sentence(sentence, data, type)
-    if type == "storage"
-      @command = sentence.split(" ")[0].gsub(" ",'')
-      @key = sentence.split(" ")[1].gsub(" ",'')
-      @flags = sentence.split(" ")[2].gsub(" ",'')
-      @exptime = sentence.split(" ")[3].gsub(" ",'')
-      @bytes = sentence.split(" ")[4].gsub(" ",'')
-      @cas_unique = sentence.split(" ")[5].gsub(" ",'') if @command == "cas"
-      check_for_errors(data)
-    elsif type == "retrieval"
-      @command = sentence.split(" ")[0].gsub(" ",'')
-      if ["get", "gets"].include?(@command)
-        @command, *@keys = sentence.split(/ /)
-        @keys.delete("")
-        error_manager("CLIENT_ERROR <Missing key>\r\n") if @keys.empty? == true
-      end
-    end
-  end
-
-  def check_for_errors(data)
-    error_manager("CLIENT_ERROR <wrong data lenght>\r\n") if check_data_size(@bytes, data) == false
-
-    parameter_validation(@flags, @exptime, @bytes, "0") if ["set", "add", "replace", "append", "prepend"].include?(@command)
-    parameter_validation(@flags, @exptime, @bytes, @cas_unique) if @command == "cas"
-    error_manager("CLIENT_ERROR <Missing key>\r\n") if @key.empty?
-  end
-
-  def reset
-    @response = "nothing"
     @multiple_response = Array.new
-    @keys = Array.new
-    @error = false
-    @command = ""
-    @key = ""
-    @flags = ""
-    @exptime = ""
-    @bytes = ""
-    @cas_unique = ""
-  end
-
-  def check_data_size(bytes, data)
-    data.size == bytes.to_i
-  end
-
-  def parameter_validation(flags, exptime, bytes, cas_unique)
-    error_manager("CLIENT_ERROR <cas_unique must be numeric>\r\n") if check_parameter(cas_unique) == false
-    error_manager("CLIENT_ERROR <flags must be numeric>\r\n") if check_parameter(flags) == false
-    error_manager("CLIENT_ERROR <exptime must be numeric>\r\n") if check_parameter(exptime) == false
-    error_manager("CLIENT_ERROR <bytes must be numeric>\r\n") if check_parameter(bytes) == false
+    puts "MEMCACHED- working..."
+    @response = ""
+    MEMORY.exp_manager
+    ANALYZER.analyze(sentence, data, type, self)
   end
 
   def error_manager(error)
-    @error = true
+    puts "MEMCACHED- error= #{error}"
+    ANALYZER.error = true
     @response = error
     @multiple_response[0] = error
-  end
-
-  def check_parameter(parameter)
-    if parameter.nil? == false
-      parameter.scan(/\D/).empty?
-    else
-      error_manager("CLIENT_ERROR <parameter missing>\r\n")
-    end
   end
 
 #----------------------------STORAGE COMMANDS------------------
@@ -121,10 +52,14 @@ class Memcached
 
   def cas(key, flags, exptime, bytes, cas_unique, datablock)
     puts "MEMCACHED- command cas executed"
-    if MEMORY.key_cas_unique[key].to_s == "#{cas_unique}"
-      self.set(key, flags, exptime, bytes, datablock)
+    if MEMORY.key_data.has_key?(key)
+      if MEMORY.key_cas_unique[key].to_s == "#{cas_unique}"
+        self.set(key, flags, exptime, bytes, datablock)
+      else
+        @response = "EXISTS\r\n"
+      end
     else
-      @response = "EXISTS\r\n"
+      @response = "CLIENT_ERROR <There's no data for this key>\r\n"
     end
   end
 
