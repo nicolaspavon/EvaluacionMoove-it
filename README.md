@@ -4,6 +4,8 @@ Nicolás Pavón
 
 Aclaraciones importantes:
 
+(el readme se ve todo chueco en git nomas)
+
 Para iniciar el servidor, ejecuto server.rb. Los tests fueron realizados con Rspec, se ubican en los archivos client_MEM_spec.rb y
 client_BD_spec.rb
 (Aclaro por las dudas, ejecuto los tests y el servidor en consolas distintas.)
